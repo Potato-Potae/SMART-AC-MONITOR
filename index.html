@@ -1,49 +1,386 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>Smart Classroom</title>
-        <style>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Classroom</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 25px;
+            background: #06172d;
+            color: white;
+        }
+
+        /* หัวเว็บ */
         h1 {
-        text-align: center;
+            text-align: center;
+            font-size: 40px;
+            margin: 0;
+            padding: 20px;
+            border: 2px solid #2196ff;
+            border-radius: 15px;
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(33, 150, 255, 0.3);
         }
-         p {
-        text-align: center;
+
+        p {
+            text-align: center;
+            color: #b8c9dd;
+            font-size: 18px;
+            margin: 15px 0 25px;
         }
-        a {
-        text-align: center;
+
+        /* กล่องสรุปสถานะ */
+        .summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            max-width: 900px;
+            margin: 0 auto 30px;
         }
+
+        .summary-box {
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            background: #0b223e;
+            border: 2px solid #2196ff;
+            box-shadow: 0 0 15px rgba(33, 150, 255, 0.2);
+        }
+
+        .summary-box h3 {
+            margin: 0 0 8px;
+            font-size: 18px;
+        }
+
+        .summary-box strong {
+            font-size: 30px;
+        }
+
+        .available {
+            color: #35e86b;
+        }
+
+        .busy {
+            color: #ff4757;
+        }
+
+        /* หัวข้อรายการห้อง */
+        .section-title {
+            max-width: 1200px;
+            margin: 0 auto 15px;
+            font-size: 26px;
+            border-left: 5px solid #2196ff;
+            padding-left: 12px;
+        }
+
+        /* กล่องรวม */
         .rooms {
             display: grid;
             grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        /* การ์ดแต่ละห้อง */
+        .room {
+            background: #0b223e;
+            border: 2px solid #187bc8;
+            border-radius: 15px;
+            padding: 18px;
+            box-shadow: 0 0 15px rgba(33, 150, 255, 0.15);
+            transition: 0.2s;
+        }
+
+        .room:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 25px rgba(33, 150, 255, 0.3);
+        }
+
+        /* ชื่อห้อง */
+        .room h2 {
+            margin: 0 0 12px;
+            text-align: center;
+            font-size: 25px;
+        }
+
+        /* สถานะ */
+        .status {
+            text-align: center;
+            font-size: 17px;
+            margin-bottom: 15px;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 7px;
+        }
+
+        .green {
+            background: #35e86b;
+            box-shadow: 0 0 10px #35e86b;
+        }
+
+        .red {
+            background: #ff4757;
+            box-shadow: 0 0 10px #ff4757;
+        }
+
+        /* ปุ่มดูสถานะ */
+        .room a {
+            display: block;
+            text-align: center;
+            padding: 13px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .room a.available-button {
+            background: #16b84e;
+            border: 2px solid #35e86b;
+        }
+
+        .room a.busy-button {
+            background: #dc3545;
+            border: 2px solid #ff4757;
+        }
+
+        .room a:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.15);
+        }
+
+        /* คำอธิบายสี */
+        .legend {
+            text-align: center;
+            margin: 25px 0 15px;
+            color: #b8c9dd;
+        }
+
+        /* อัปเดตล่าสุด */
+        .update {
+            max-width: 1200px;
+            margin: 25px auto 0;
+            padding: 15px;
+            background: #0b223e;
+            border: 2px solid #187bc8;
+            border-radius: 12px;
+            text-align: center;
+            color: #b8c9dd;
+        }
+
+        .update strong {
+            color: white;
+        }
+
+        /* ---------------- มือถือ ---------------- */
+
+        @media (max-width: 600px) {
+
+            body {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 27px;
+                padding: 16px 10px;
+            }
+
+            p {
+                font-size: 15px;
+            }
+
+            .summary {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .summary-box {
+                padding: 15px 8px;
+            }
+
+            .summary-box h3 {
+                font-size: 14px;
+            }
+
+            .summary-box strong {
+                font-size: 25px;
+            }
+
+            .section-title {
+                font-size: 22px;
+            }
+
+            /* มือถือให้เรียงทีละห้อง */
+            .rooms {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .room {
+                padding: 15px;
+            }
+
+            .room h2 {
+                font-size: 23px;
+            }
+
+            .room a {
+                font-size: 17px;
+            }
         }
     </style>
-    </head>
-    
-    <body>
-        <h1>Smart Classroom</h1>
-        <p>ระบบตรวจสอบสถานะห้องเรียน</p>
+</head>
 
-        <div class="rooms">
+<body>
 
-        <a href="room1.html">
-        <h2>Room1841</h2>
-    </a>
-        <a href="room2.html">
-        <h2>Room1842</h2>
-    </a>
-        <a href="room3.html">
-        <h2>Room1843</h2>
-    </a>
-        <a href="room4.html">
-        <h2>Room1844</h2>
-    </a>
-        <a href="room5.html">
-        <h2>Room1845</h2>
-    </a>
-        <a href="room6.html">
-        <h2>Room1846</h2>
-    </a>
-</div>
-        
-    </body>
+    <h1>SMART CLASSROOM</h1>
+
+    <p>ระบบตรวจสอบสถานะการใช้งานห้องเรียน</p>
+
+
+    <!-- สรุปสถานะ -->
+    <div class="summary">
+
+        <div class="summary-box available">
+            <h3>🟢 พร้อมใช้งาน</h3>
+            <strong>4 ห้อง</strong>
+        </div>
+
+        <div class="summary-box busy">
+            <h3>🔴 กำลังใช้งาน</h3>
+            <strong>2 ห้อง</strong>
+        </div>
+
+    </div>
+
+
+    <div class="section-title">
+        รายการห้องเรียน
+    </div>
+
+
+    <div class="legend">
+        🟢 พร้อมใช้งาน &nbsp;&nbsp;&nbsp;
+        🔴 กำลังใช้งาน
+    </div>
+
+
+    <!-- ห้องทั้งหมด -->
+    <div class="rooms">
+
+        <!-- Room 1841 -->
+        <div class="room">
+            <h2>ROOM 1841</h2>
+
+            <div class="status available">
+                <span class="dot green"></span>
+                พร้อมใช้งาน
+            </div>
+
+            <a href="room1.html" class="available-button">
+                สถานะ →
+            </a>
+        </div>
+
+
+        <!-- Room 1842 -->
+        <div class="room">
+            <h2>ROOM 1842</h2>
+
+            <div class="status busy">
+                <span class="dot red"></span>
+                กำลังใช้งาน
+            </div>
+
+            <a href="room2.html" class="busy-button">
+                สถานะ →
+            </a>
+        </div>
+
+
+        <!-- Room 1843 -->
+        <div class="room">
+            <h2>ROOM 1843</h2>
+
+            <div class="status available">
+                <span class="dot green"></span>
+                พร้อมใช้งาน
+            </div>
+
+            <a href="room3.html" class="available-button">
+                สถานะ →
+            </a>
+        </div>
+
+
+        <!-- Room 1844 -->
+        <div class="room">
+            <h2>ROOM 1844</h2>
+
+            <div class="status available">
+                <span class="dot green"></span>
+                พร้อมใช้งาน
+            </div>
+
+            <a href="room4.html" class="available-button">
+                สถานะ →
+            </a>
+        </div>
+
+
+        <!-- Room 1845 -->
+        <div class="room">
+            <h2>ROOM 1845</h2>
+
+            <div class="status busy">
+                <span class="dot red"></span>
+                กำลังใช้งาน
+            </div>
+
+            <a href="room5.html" class="busy-button">
+                สถานะ →
+            </a>
+        </div>
+
+
+        <!-- Room 1846 -->
+        <div class="room">
+            <h2>ROOM 1846</h2>
+
+            <div class="status available">
+                <span class="dot green"></span>
+                พร้อมใช้งาน
+            </div>
+
+            <a href="room6.html" class="available-button">
+                สถานะ →
+            </a>
+        </div>
+
+    </div>
+
+
+    <!-- อัปเดตล่าสุด -->
+    <div class="update">
+        ↻ อัปเดตล่าสุด :
+        <strong>20:41:23</strong>
+    </div>
+
+</body>
 </html>
