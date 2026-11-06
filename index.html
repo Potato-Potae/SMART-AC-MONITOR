@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART AC MONITOR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="layout">
+
+    <nav class="sidebar">
+        <div class="brand">
+            <div class="brand-logo">❄️</div>
+            Smart AC
+        </div>
+
+        <div class="menu">
+            <a href="index.html" class="active">🏠 หน้าหลัก</a>
+
+            <div class="menu-title">เครื่องปรับอากาศ</div>
+            <a href="ac1.html" data-ac="1">❄️ แอร์ 1 <span class="mini-dot offline" id="dot1"></span></a>
+            <a href="ac2.html" data-ac="2">❄️ แอร์ 2 <span class="mini-dot offline" id="dot2"></span></a>
+            <a href="ac3.html" data-ac="3">❄️ แอร์ 3 <span class="mini-dot offline" id="dot3"></span></a>
+            <a href="ac4.html" data-ac="4">❄️ แอร์ 4 <span class="mini-dot offline" id="dot4"></span></a>
+
+            <div class="menu-title desktop-only">อื่น ๆ</div>
+            <a href="#" class="desktop-only">📊 รายงาน</a>
+            <a href="#" class="desktop-only">⚙️ ตั้งค่า</a>
+        </div>
+    </nav>
+
+    <main class="main">
+
+        <div class="topbar">
+            <div>
+                <h1>ภาพรวมเครื่องปรับอากาศ</h1>
+                <p>ระบบตรวจสอบสถานะการทำงานของเครื่องปรับอากาศ</p>
+            </div>
+            <div class="tools">
+                <div class="chip">↻ อัปเดตล่าสุด <strong id="time">--:--:--</strong></div>
+                <a href="index.html" class="btn-refresh">รีเฟรช</a>
+            </div>
+        </div>
+
+        <!-- กล่องแจ้งเตือน (โชว์เมื่อมีปัญหา) -->
+        <div class="alerts" id="alerts"></div>
+
+        <!-- สรุป -->
+        <div class="summary">
+            <div class="stat">
+                <div class="stat-icon">❄️</div>
+                <div><span>แอร์ทั้งหมด</span><strong id="sTotal">4</strong></div>
+            </div>
+            <div class="stat on">
+                <div class="stat-icon">🟢</div>
+                <div><span>เปิดอยู่</span><strong id="sOn">0</strong></div>
+            </div>
+            <div class="stat off">
+                <div class="stat-icon">🔴</div>
+                <div><span>ปิดอยู่</span><strong id="sOff">0</strong></div>
+            </div>
+            <div class="stat offline">
+                <div class="stat-icon">📡</div>
+                <div><span>ออฟไลน์</span><strong id="sOffline">0</strong></div>
+            </div>
+        </div>
+
+        <h2 class="section-title">รายการเครื่องปรับอากาศ</h2>
+
+        <!-- การ์ดแอร์ 4 ตัว (สร้างอัตโนมัติจาก config.js) -->
+        <div class="aircons" id="cards"></div>
+
+    </main>
+</div>
+
+<script src="config.js"></script>
+<script>
+function cardHTML(i, r) {
+    const d = r.data || {};
+    return `
+    <div class="ac ${r.state}">
+        <div class="ac-head">
+            <h2>${CONFIG.ACS[i].name}</h2>
+            <span class="pill ${r.state}"><i></i>${STATE_TEXT[r.state]}</span>
+        </div>
+        <div class="ac-temp">${fmt(d.temp, 1)}<span>°C</span></div>
+        <div class="ac-meta">
+            <span>⚡ ${fmt(d.voltage, 0)} V</span>
+            <span>🔌 ${fmt(d.current, 2)} A</span>
+            <span>💡 ${fmt(d.power, 0)} W</span>
+        </div>
+        <a href="ac${i + 1}.html">ดูรายละเอียด</a>
+    </div>`;
+}
+
+async function refresh() {
+    const results = await Promise.all(CONFIG.ACS.map((_, i) => loadAC(i)));
+
+    document.getElementById("cards").innerHTML = results.map((r, i) => cardHTML(i, r)).join("");
+
+    const count = s => results.filter(r => r.state === s).length;
+    document.getElementById("sTotal").textContent   = results.length;
+    document.getElementById("sOn").textContent      = count("on");
+    document.getElementById("sOff").textContent     = count("off");
+    document.getElementById("sOffline").textContent = count("offline");
+
+    showAlerts(results.flatMap(r => r.warnings));
+    updateDots(results);
+    document.getElementById("time").textContent = nowTime();
+}
+
+refresh();
+setInterval(refresh, CONFIG.INTERVAL);
+</script>
+</body>
+</html>

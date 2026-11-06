@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART AC MONITOR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="layout">
+
+    <nav class="sidebar">
+        <div class="brand">
+            <div class="brand-logo">❄️</div>
+            Smart AC
+        </div>
+
+        <div class="menu">
+            <a href="index.html">🏠 หน้าหลัก</a>
+
+            <div class="menu-title">เครื่องปรับอากาศ</div>
+            <a href="ac1.html" data-ac="1">❄️ แอร์ 1 <span class="mini-dot offline" id="dot1"></span></a>
+            <a href="ac2.html" data-ac="2">❄️ แอร์ 2 <span class="mini-dot offline" id="dot2"></span></a>
+            <a href="ac3.html" data-ac="3">❄️ แอร์ 3 <span class="mini-dot offline" id="dot3"></span></a>
+            <a href="ac4.html" data-ac="4">❄️ แอร์ 4 <span class="mini-dot offline" id="dot4"></span></a>
+
+            <div class="menu-title desktop-only">อื่น ๆ</div>
+            <a href="#" class="desktop-only">📊 รายงาน</a>
+            <a href="#" class="desktop-only">⚙️ ตั้งค่า</a>
+        </div>
+    </nav>
+
+    <main class="main">
+
+        <div class="topbar">
+            <div>
+                <a href="index.html" class="back">← กลับหน้าหลัก</a>
+                <h1 id="title">แอร์</h1>
+                <p>รายละเอียดการทำงานของเครื่องปรับอากาศ</p>
+            </div>
+            <div class="tools">
+                <div class="chip">↻ อัปเดตล่าสุด <strong id="time">--:--:--</strong></div>
+                <a href="" class="btn-refresh">รีเฟรช</a>
+            </div>
+        </div>
+
+        <div class="alerts" id="alerts"></div>
+
+        <!-- สถานะหลัก -->
+        <div class="hero" id="hero">
+            <div>
+                <h2>สถานะแอร์</h2>
+                <span class="pill" id="pill"></span>
+            </div>
+            <div>
+                <div class="big"><b id="temp">--</b><span>°C</span></div>
+                <div class="big-label">อุณหภูมิห้อง</div>
+            </div>
+        </div>
+
+        <!-- ค่าไฟฟ้าหลัก -->
+        <div class="tiles">
+            <div class="tile"><span>⚡ แรงดัน</span><strong><b id="volt">--</b> <small>V</small></strong></div>
+            <div class="tile"><span>🔌 กระแส</span><strong><b id="amp">--</b> <small>A</small></strong></div>
+            <div class="tile"><span>💡 กำลังไฟ</span><strong><b id="watt">--</b> <small>W</small></strong></div>
+        </div>
+
+        <div class="two">
+            <div class="card">
+                <h3>ข้อมูลไฟฟ้าเพิ่มเติม</h3>
+                <div class="row"><span>พลังงานสะสม</span><strong><b id="kwh">--</b> kWh</strong></div>
+                <div class="row"><span>ความถี่</span><strong><b id="hz">--</b> Hz</strong></div>
+                <div class="row"><span>Power Factor</span><strong id="pf">--</strong></div>
+            </div>
+
+            <div class="card">
+                <h3>อุปกรณ์</h3>
+                <div class="row"><span>🔋 PZEM-004T</span><strong id="devPzem">--</strong></div>
+                <div class="row"><span>🌡️ DS18B20</span><strong id="devTemp">--</strong></div>
+                <div class="row"><span>📡 ESP32</span><strong id="devEsp">--</strong></div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script src="config.js"></script>
+<script>
+// ★ ก็อปไฟล์นี้ไปทำแอร์ตัวอื่น: แก้เลขตรงนี้ที่เดียว (1, 2, 3 หรือ 4)
+const AC_NUMBER = 4;
+
+// ไฮไลต์เมนูของแอร์ตัวนี้ + ใส่ชื่อหน้า
+document.querySelectorAll("[data-ac]").forEach(a => {
+    if (a.dataset.ac == AC_NUMBER) a.classList.add("active");
+});
+document.getElementById("title").textContent = CONFIG.ACS[AC_NUMBER - 1].name;
+document.title = CONFIG.ACS[AC_NUMBER - 1].name + " - SMART AC MONITOR";
+
+const set = (id, text) => document.getElementById(id).textContent = text;
+const has = v => v !== null && v !== undefined;
+
+async function refresh() {
+    const results = await Promise.all(CONFIG.ACS.map((_, i) => loadAC(i)));
+    const r = results[AC_NUMBER - 1];
+    const d = r.data || {};
+
+    document.getElementById("hero").className = "hero " + r.state;
+    const pill = document.getElementById("pill");
+    pill.className = "pill " + r.state;
+    pill.innerHTML = "<i></i>" + STATE_TEXT[r.state];
+
+    set("temp", fmt(d.temp, 1));
+    set("volt", fmt(d.voltage, 1));
+    set("amp",  fmt(d.current, 2));
+    set("watt", fmt(d.power, 0));
+    set("kwh",  fmt(d.energy, 2));
+    set("hz",   fmt(d.freq, 1));
+    set("pf",   fmt(d.pf, 2));
+
+    set("devEsp",  r.state === "offline" ? "ติดต่อไม่ได้" : "เชื่อมต่อแล้ว");
+    set("devPzem", has(d.voltage) ? "ปกติ" : "ไม่มีข้อมูล");
+    set("devTemp", has(d.temp) ? "ปกติ" : "ไม่มีข้อมูล");
+
+    showAlerts(r.warnings);
+    updateDots(results);
+    set("time", nowTime());
+}
+
+refresh();
+setInterval(refresh, CONFIG.INTERVAL);
+</script>
+</body>
+</html>
