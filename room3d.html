@@ -1,0 +1,329 @@
+<!doctype html><html data-theme="light"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>โมเดลห้องเรียน 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen viewer. Slim header, 3D stage fills the middle, view and display controls sit underneath. */
+:root{
+  --font:'IBM Plex Sans Thai',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --bg:#e9edeb; --stage:#dfe6e3; --panel:#f7f9f8; --fg:#18211f; --muted:#56655f; --line:#c5cecb;
+  --accent:#c4352c; --teal:#12706d; --warm:#9a5418; --blue:#2a5bc0;
+  --floor:#cfd7d4; --ground:#b9c3bf; --pad:#a4afab; --wall:#f3f6f5; --column:#141516; --edge:#1b2523;
+  --unit:#f4f6f5; --cond:#c9d2cf; --door:#b9946a; --desk:#e3e8e6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1413; --stage:#141c1b; --panel:#1a2423; --fg:#e5eeeb; --muted:#92a39e; --line:#2d3a37;
+    --accent:#ff7468; --teal:#5fd0cb; --warm:#f0a766; --blue:#7aa5ff;
+    --floor:#27312f; --ground:#1d2624; --pad:#33403d; --wall:#a9bab5; --column:#050606; --edge:#d3dfdb;
+    --unit:#e4ebe8; --cond:#8f9d99; --door:#8c6c48; --desk:#9fb0ab; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1413; --stage:#141c1b; --panel:#1a2423; --fg:#e5eeeb; --muted:#92a39e; --line:#2d3a37;
+  --accent:#ff7468; --teal:#5fd0cb; --warm:#f0a766; --blue:#7aa5ff;
+  --floor:#27312f; --ground:#1d2624; --pad:#33403d; --wall:#a9bab5; --column:#050606; --edge:#d3dfdb;
+  --unit:#e4ebe8; --cond:#8f9d99; --door:#8c6c48; --desk:#9fb0ab; color-scheme:dark;
+}
+html{height:100%;box-sizing:border-box}
+body{height:100%;margin:0;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;
+  padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:var(--bg);color:var(--fg);font-family:var(--font)}
+header{display:flex;flex-direction:column;gap:2px}
+h1{margin:0;font-size:1.1rem;font-weight:600;text-wrap:balance}
+header p{margin:0;font:400 .72rem/1.5 var(--mono);color:var(--muted)}
+#stage{position:relative;flex:1;min-height:260px;border:1px solid var(--line);border-radius:10px;background:var(--stage);overflow:hidden}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline-offset:-3px}
+#stage canvas:active{cursor:grabbing}
+#tags{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.tag{position:absolute;left:0;top:0;font:500 11px/1 var(--mono);padding:3px 6px;border-radius:4px;white-space:nowrap;
+  background:var(--panel);color:var(--fg);border:1px solid var(--line)}
+.t-air{color:var(--teal);border-color:var(--teal)} .t-red{color:var(--accent);border-color:var(--accent)}
+.t-warm{color:var(--warm);border-color:var(--warm)} .t-blue{color:var(--blue);border-color:var(--blue)}
+.t-dim{background:none;border-color:transparent;color:var(--muted)}
+.hint{position:absolute;left:10px;bottom:8px;font:400 11px/1.4 var(--mono);color:var(--muted);pointer-events:none}
+.fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+.dock{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.seg{display:flex;gap:6px;max-width:100%;overflow-x:auto;padding-bottom:2px}
+.seg button{font:inherit;font-size:.85rem;padding:7px 12px;border-radius:8px;border:1px solid var(--line);
+  background:var(--panel);color:var(--fg);cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.toggles{display:flex;flex-wrap:wrap;gap:6px 14px}
+.toggles label{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer}
+.toggles input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid var(--accent)}
+.embed header{display:none}  /* ตอนฝังในแอป ซ่อนหัวเรื่องซ้ำ */
+</style>
+
+<header>
+  <h1>ห้องเรียน 3 มิติ</h1>
+  <p>กว้าง ≈ 8 ม. (ในแบบ 7–9 ม.) · ลึก 5 ม. · สูง 3 ม. (สมมติ) · แอร์แขวนเพดาน 4 ตัว · เสา 3 ต้นคร่อมผนัง</p>
+</header>
+<div id="stage">
+  <div id="tags"></div>
+  <div class="hint">ลากเพื่อหมุน · บีบหรือเลื่อนล้อเพื่อซูม · เส้นตาราง 1 ม.</div>
+</div>
+<nav class="dock" aria-label="ตัวควบคุมมุมมอง">
+  <div class="seg" role="group" aria-label="มุมมอง">
+    <button type="button" data-view="iso" aria-pressed="true">มุมเฉียง</button>
+    <button type="button" data-view="plan" aria-pressed="false">แปลนจากด้านบน</button>
+    <button type="button" data-view="front" aria-pressed="false">มองเข้าหาแอร์</button>
+    <button type="button" data-view="side" aria-pressed="false">ขนานผนัง (เบรกเกอร์)</button>
+    <button type="button" data-view="out" aria-pressed="false">ด้านนอกผนัง</button>
+  </div>
+  <div class="toggles">
+    <label for="t-tags"><input id="t-tags" type="checkbox" checked>ป้ายชื่อ</label>
+    <label for="t-ceil"><input id="t-ceil" type="checkbox" checked>เพดาน</label>
+    <label for="t-solid"><input id="t-solid" type="checkbox">ผนังทึบ</label>
+    <label for="t-grid"><input id="t-grid" type="checkbox" checked>ตาราง</label>
+  </div>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  var T=window.THREE, stage=document.getElementById('stage');
+  if(window.self!==window.top) document.documentElement.classList.add('embed');
+  if(!T){stage.insertAdjacentHTML('beforeend','<div class="fallback">โหลดตัวแสดงผล 3 มิติไม่สำเร็จ ลองรีเฟรชหน้านี้</div>');return;}
+  var renderer;
+  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true});}
+  catch(e){stage.insertAdjacentHTML('beforeend','<div class="fallback">อุปกรณ์นี้ไม่รองรับ WebGL จึงแสดงภาพ 3 มิติไม่ได้</div>');return;}
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  var cv=renderer.domElement; cv.tabIndex=0; cv.setAttribute('aria-label','ภาพ 3 มิติของห้องเรียน ใช้ลูกศรเพื่อหมุน');
+  stage.prepend(cv);
+
+  /* ---- dimensions in metres (x along the air wall, y up, z from the air wall into the room) ---- */
+  var W=8,D=5,H=3,WT=0.15,FY=0.04;
+  var AX=[1.155,2.80,4.46,6.51];          // indoor units
+  var CX=[2.09,3.74,5.65];                // black columns; col 1 and 3 carry the breakers
+  var COLW=0.45,COLD=0.6;                 // column footprint, centred on the wall's inner face line (z=0)
+  var DOORS=[2.28,6.63],DW=0.9,DH=2.1;
+
+  var scene=new T.Scene(), camera=new T.PerspectiveCamera(38,1,0.1,200);
+  scene.add(new T.HemisphereLight(0xffffff,0x9aa7a3,0.72));
+  var sun=new T.DirectionalLight(0xffffff,0.5); sun.position.set(-4,10,8); scene.add(sun);
+  var root=new T.Group(); scene.add(root);
+
+  function mk(o){return new T.MeshLambertMaterial(o||{});}
+  var wm={top:mk({transparent:true,depthWrite:false}),bottom:mk({transparent:true,depthWrite:false}),
+          left:mk({transparent:true,depthWrite:false}),right:mk({transparent:true,depthWrite:false})};
+  var M={floor:mk(),ground:mk(),pad:mk(),col:mk(),unit:mk(),cond:mk(),breaker:mk(),wire:mk(),sdesk:mk(),tdesk:mk(),
+    door:mk({transparent:true}),ceil:mk({transparent:true,depthWrite:false,side:T.DoubleSide}),
+    slot:mk({color:0x2a3331}),leg:mk({color:0x3a4442}),copper:mk({color:0xc47a3a}),
+    grille:mk({color:0x2a3331,side:T.DoubleSide})};
+  var EM=new T.LineBasicMaterial({transparent:true,opacity:0.5});
+  var GM=new T.LineBasicMaterial({transparent:true,opacity:0.2});
+  var DM=new T.LineBasicMaterial();
+  var css=function(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();};
+  function theme(){
+    M.floor.color.set(css('--floor')); M.ground.color.set(css('--ground')); M.pad.color.set(css('--pad'));
+    M.col.color.set(css('--column')); M.unit.color.set(css('--unit')); M.cond.color.set(css('--cond'));
+    M.breaker.color.set(css('--accent')); M.wire.color.set(css('--accent')); M.door.color.set(css('--door'));
+    M.tdesk.color.set(css('--blue')); M.sdesk.color.set(css('--desk')); M.ceil.color.set(css('--wall'));
+    for(var k in wm) wm[k].color.set(css('--wall'));
+    EM.color.set(css('--edge')); GM.color.set(css('--edge')); DM.color.set(css('--muted'));
+  }
+
+  function box(w,h,d,x,y,z,mat,edge,parent){
+    var g=new T.BoxGeometry(w,h,d), m=new T.Mesh(g,mat); m.position.set(x,y,z);
+    if(edge) m.add(new T.LineSegments(new T.EdgesGeometry(g),EM));
+    (parent||root).add(m); return m;
+  }
+  function lines(pts,mat){
+    var g=new T.BufferGeometry().setFromPoints(pts.map(function(p){return new T.Vector3(p[0],p[1],p[2]);}));
+    var l=new T.LineSegments(g,mat); root.add(l); return l;
+  }
+  function tube(pts,r,mat){
+    var path=new T.CurvePath();
+    for(var i=0;i<pts.length-1;i++) path.add(new T.LineCurve3(new T.Vector3(pts[i][0],pts[i][1],pts[i][2]),new T.Vector3(pts[i+1][0],pts[i+1][1],pts[i+1][2])));
+    root.add(new T.Mesh(new T.TubeGeometry(path,160,r,6,false),mat));
+  }
+
+  /* ---- ground, floor, grid ---- */
+  box(30,0.04,22,W/2,-0.02,D/2,M.ground);
+  box(W,FY,D,W/2,FY/2,D/2,M.floor);
+  var gp=[],i,j;
+  for(i=1;i<W;i++) gp.push([i,FY+0.005,0],[i,FY+0.005,D]);
+  for(i=1;i<D;i++) gp.push([0,FY+0.005,i],[W,FY+0.005,i]);
+  var grid=lines(gp,GM);
+
+  /* ---- walls (air wall at z<0, door wall at z>D), ceiling ---- */
+  box(W+2*WT,H,WT,W/2,H/2,-WT/2,wm.top,true);
+  box(WT,H,D,-WT/2,H/2,D/2,wm.left,true);
+  box(WT,H,D,W+WT/2,H/2,D/2,wm.right,true);
+  var bz=D+WT/2,x0=-WT;
+  function seg(a,b){box(b-a,H,WT,(a+b)/2,H/2,bz,wm.bottom,true);}
+  DOORS.forEach(function(d){
+    seg(x0,d-DW/2); x0=d+DW/2;
+    box(DW,H-DH,WT,d,DH+(H-DH)/2,bz,wm.bottom,true);
+    box(DW-0.04,DH-0.04,0.04,d,DH/2+0.01,bz,M.door,true);
+    box(0.03,0.14,0.05,d+DW/2-0.12,1.0,bz+0.04,M.copper);
+  });
+  seg(x0,W+WT);
+  var ceil=new T.Mesh(new T.PlaneGeometry(W+2*WT,D+2*WT),M.ceil);
+  ceil.rotation.x=Math.PI/2; ceil.position.set(W/2,H,D/2); root.add(ceil);
+
+  /* ---- columns straddling the wall ---- */
+  CX.forEach(function(cx){box(COLW,H,COLD,cx,H/2,0,M.col,true);});
+
+  /* ---- ceiling-suspended indoor units, outdoor condensers behind each one ---- */
+  AX.forEach(function(ax){
+    box(0.85,0.25,0.45,ax,2.7,0.245,M.unit,true);
+    box(0.7,0.01,0.08,ax,2.575,0.36,M.slot);
+    [-0.38,0.38].forEach(function(dx){[0.08,0.42].forEach(function(z){box(0.015,0.175,0.015,ax+dx,2.9125,z,M.leg);});});
+    box(0.95,0.06,0.5,ax,0.03,-0.445,M.pad);
+    box(0.8,0.62,0.35,ax,0.37,-0.445,M.cond,true);
+    var gr=new T.Mesh(new T.CircleGeometry(0.22,32),M.grille); gr.position.set(ax,0.4,-0.622); root.add(gr);
+    var hub=new T.Mesh(new T.CircleGeometry(0.05,20),M.cond); hub.position.set(ax,0.4,-0.623); root.add(hub);
+    [0.16,0.24].forEach(function(o){tube([[ax+o,2.7,0.03],[ax+o,2.7,-0.445],[ax+o,0.68,-0.445]],0.02,M.copper);});
+  });
+
+  /* ---- breakers on the side face of columns 1 and 3, wired to their two units ---- */
+  [0,2].forEach(function(ci){
+    var cx=CX[ci];
+    [0,1].forEach(function(k){
+      var z=k?0.23:0.10, ux=AX[ci===0?k:2+k], yr=k?2.86:2.92, zr=k?0.42:0.36, dx=cx-(k?0.26:0.28);
+      box(0.07,0.15,0.09,cx-COLW/2-0.035,1.6,z,M.breaker,true);
+      box(0.02,0.04,0.03,cx-COLW/2-0.08,1.62,z,M.unit);
+      tube([[ux,2.825,zr],[ux,yr,zr],[dx,yr,zr],[dx,yr,z],[dx,1.69,z]],0.012,M.wire);
+    });
+  });
+
+  /* ---- furniture ---- */
+  var legG=new T.BoxGeometry(0.04,1,0.04);
+  function table(x,z,w,d,topY,mat,edge,corners){
+    box(w,0.04,d,x,topY-0.02,z,mat,edge);
+    var lh=topY-0.04-FY;
+    (corners||[[-1,-1],[1,-1],[-1,1],[1,1]]).forEach(function(c){
+      var l=new T.Mesh(legG,M.leg); l.scale.y=lh; l.position.set(x+c[0]*(w/2-0.035),FY+lh/2,z+c[1]*(d/2-0.035)); root.add(l);
+    });
+  }
+  table(1.1,4.175,0.6,1.45,0.75,M.tdesk,true);                 // teacher desk: main run along the left wall
+  table(0.6,3.70,0.4,0.5,0.75,M.tdesk,true,[[-1,-1],[-1,1]]);   // and its return toward the wall
+  var DXS=[2.05,3.3,4.55,5.8];
+  for(i=0;i<5;i++) for(j=0;j<4;j++) table(DXS[j],1.45+i*0.675,0.55,0.4,0.72,M.sdesk,false);
+
+  /* ---- dimension lines ---- */
+  lines([[0,0.05,D+0.5],[W,0.05,D+0.5],[0,0.05,D+0.4],[0,0.05,D+0.6],[W,0.05,D+0.4],[W,0.05,D+0.6],
+         [W+0.5,0.05,0],[W+0.5,0.05,D],[W+0.4,0.05,0],[W+0.6,0.05,0],[W+0.4,0.05,D],[W+0.6,0.05,D]],DM);
+
+  /* ---- labels ---- */
+  var tags=[],layer=document.getElementById('tags');
+  function tag(text,cls,x,y,z,max){
+    var el=document.createElement('span'); el.className='tag '+cls; el.textContent=text; layer.appendChild(el);
+    tags.push({el:el,p:new T.Vector3(x,y,z),max:max||0});
+  }
+  AX.forEach(function(a,n){tag('Air '+(n+1),'t-air',a,3.12,0.25);tag('คอยล์ร้อน '+(n+1),'t-warm',a,0.82,-0.445,12);});
+  /* ---- รับสถานะแอร์สดจากแอป SMART AC MONITOR แล้วอัปเดตป้าย Air 1-4 (เขียว=เปิด แดง=ปิด เทา=ออฟไลน์) ---- */
+  var airEls=[0,2,4,6].map(function(k){return tags[k].el;});
+  window.addEventListener('message',function(e){
+    var d=e.data; if(!d||d.type!=='ac') return;
+    d.acs.forEach(function(a,n){
+      var el=airEls[n]; if(!el) return;
+      el.className='tag '+(a.state==='on'?'t-air':a.state==='off'?'t-red':'t-dim');
+      el.textContent='Air '+(n+1)+' · '+(a.state==='on'?'เปิด':a.state==='off'?'ปิด':'ออฟไลน์')+(a.temp!=null?' '+a.temp.toFixed(1)+'°':'');
+    });
+  });
+  CX.forEach(function(c,n){tag('เสา '+(n+1),'',c,3.12,0,0);});
+  [0,2].forEach(function(ci){
+    tag('B1 → Air '+(ci+1),'t-red',CX[ci]-0.3,1.95,0.10,6);
+    tag('B2 → Air '+(ci+2),'t-red',CX[ci]-0.3,1.4,0.23,6);
+  });
+  tag('โต๊ะอาจารย์','t-blue',1.1,0.95,4.2);
+  tag('โต๊ะนักเรียน 20 ตัว','',3.93,1.0,2.8);
+  DOORS.forEach(function(d){tag('ประตู','',d,2.2,D+WT);});
+  tag('≈ 8 ม. (7–9 ม.)','t-dim',W/2,0.05,D+0.55);
+  tag('5 ม.','t-dim',W+0.55,0.05,D/2);
+  tag('สูง 3 ม. (สมมติ)','t-dim',-0.3,H,0);
+
+  /* ---- camera: smoothed orbit around a target ---- */
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var P={
+    iso:{t:[4,1.2,2.5],yaw:0.55,pitch:0.5,dist:13.5,w:11},
+    plan:{t:[4,0,2.5],yaw:0,pitch:1.55,dist:11,w:9.6},
+    front:{t:[4,1.4,0],yaw:0,pitch:0.05,dist:10.5,w:10},
+    side:{t:[2.09,1.6,0.12],yaw:-1.5708,pitch:0.04,dist:3.4,w:1.9},
+    out:{t:[4,1.3,-0.4],yaw:3.1416,pitch:0.16,dist:10.5,w:10}
+  };
+  var st={tx:4,ty:1.2,tz:2.5,yaw:0.55,pitch:0.5,dist:13.5}, goal=Object.assign({},st), cur='iso', moved=false;
+  var btns=Array.prototype.slice.call(document.querySelectorAll('[data-view]'));
+  function mark(n){btns.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.view===n));});}
+  function setGoal(n,instant){
+    var p=P[n]; cur=n; moved=false; mark(n);
+    var d=Math.max(p.dist,p.w/(0.6887*camera.aspect)), y=p.yaw;
+    y+=Math.PI*2*Math.round((st.yaw-y)/(Math.PI*2));
+    goal.tx=p.t[0]; goal.ty=p.t[1]; goal.tz=p.t[2]; goal.yaw=y; goal.pitch=p.pitch; goal.dist=d;
+    if(instant||reduce) Object.assign(st,goal);
+  }
+  btns.forEach(function(b){b.addEventListener('click',function(){setGoal(b.dataset.view);});});
+  function userMoved(){moved=true;mark('');}
+  var clamp=function(v,a,b){return Math.max(a,Math.min(b,v));};
+  var ptrs=new Map(),pd=0;
+  function pinch(){var a=Array.from(ptrs.values());return a.length<2?0:Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);}
+  cv.addEventListener('pointerdown',function(e){cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,[e.clientX,e.clientY]);pd=pinch();});
+  cv.addEventListener('pointermove',function(e){
+    var p=ptrs.get(e.pointerId); if(!p) return;
+    if(ptrs.size===1){goal.yaw-=(e.clientX-p[0])*0.008;goal.pitch=clamp(goal.pitch+(e.clientY-p[1])*0.006,0.02,1.55);}
+    ptrs.set(e.pointerId,[e.clientX,e.clientY]);
+    if(ptrs.size===2){var d=pinch();if(pd&&d)goal.dist=clamp(goal.dist*pd/d,1.5,40);pd=d;}
+    userMoved();
+  });
+  function up(e){ptrs.delete(e.pointerId);pd=pinch();}
+  cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+  cv.addEventListener('wheel',function(e){e.preventDefault();goal.dist=clamp(goal.dist*Math.exp(e.deltaY*0.001),1.5,40);userMoved();},{passive:false});
+  cv.addEventListener('keydown',function(e){
+    var k=e.key,h=true;
+    if(k==='ArrowLeft')goal.yaw+=0.12; else if(k==='ArrowRight')goal.yaw-=0.12;
+    else if(k==='ArrowUp')goal.pitch=clamp(goal.pitch+0.08,0.02,1.55); else if(k==='ArrowDown')goal.pitch=clamp(goal.pitch-0.08,0.02,1.55);
+    else if(k==='+'||k==='=')goal.dist=clamp(goal.dist*0.9,1.5,40); else if(k==='-')goal.dist=clamp(goal.dist/0.9,1.5,40);
+    else h=false;
+    if(h){e.preventDefault();userMoved();}
+  });
+
+  /* ---- display toggles ---- */
+  var on={tags:true,ceil:true,solid:false};
+  document.getElementById('t-tags').addEventListener('change',function(e){on.tags=e.target.checked;});
+  document.getElementById('t-ceil').addEventListener('change',function(e){on.ceil=e.target.checked;});
+  document.getElementById('t-solid').addEventListener('change',function(e){on.solid=e.target.checked;});
+  document.getElementById('t-grid').addEventListener('change',function(e){grid.visible=e.target.checked;});
+
+  /* ---- per frame ---- */
+  var v=new T.Vector3(),keys=['tx','ty','tz','yaw','pitch','dist'];
+  function frame(){
+    var f=reduce?1:0.14,k;
+    for(k=0;k<keys.length;k++) st[keys[k]]+=(goal[keys[k]]-st[keys[k]])*f;
+    var cp=Math.cos(st.pitch);
+    camera.position.set(st.tx+st.dist*cp*Math.sin(st.yaw),st.ty+st.dist*Math.sin(st.pitch),st.tz+st.dist*cp*Math.cos(st.yaw));
+    camera.lookAt(st.tx,st.ty,st.tz);
+    var p=camera.position,base=on.solid?0.95:0.34,ghost=0.06;
+    wm.top.opacity=base;
+    wm.bottom.opacity=p.z>D+WT?ghost:base; M.door.opacity=p.z>D+WT?0.12:1;
+    wm.left.opacity=p.x<-WT?ghost:base; wm.right.opacity=p.x>W+WT?ghost:base;
+    ceil.visible=on.ceil; M.ceil.opacity=p.y>H?0.03:0.14;
+    renderer.render(scene,camera);
+    var w=stage.clientWidth,h=stage.clientHeight;
+    for(k=0;k<tags.length;k++){
+      var t=tags[k]; v.copy(t.p).project(camera);
+      var show=on.tags&&v.z<1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05&&(!t.max||st.dist<t.max);
+      t.el.hidden=!show;
+      if(show) t.el.style.transform='translate('+((v.x*0.5+0.5)*w)+'px,'+((-v.y*0.5+0.5)*h)+'px) translate(-50%,-125%)';
+    }
+    requestAnimationFrame(frame);
+  }
+
+  new ResizeObserver(function(){
+    var w=stage.clientWidth,h=stage.clientHeight; if(!w||!h) return;
+    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+    if(!moved) setGoal(cur);
+  }).observe(stage);
+
+  theme();
+  if(window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);
+  new MutationObserver(theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  camera.aspect=Math.max(0.3,stage.clientWidth/Math.max(1,stage.clientHeight));
+  setGoal('iso',true);
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
